@@ -70,14 +70,14 @@ namespace server.Controller
             }
         }
 
-        [HttpPut]
-        public async Task<IActionResult> Update([FromBody] Product pro)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update([FromBody] Product pro, int id)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
-                var existingPro = await _productRepository.GetProductAsync(pro.Id);
+                var existingPro = await _productRepository.GetProductAsync(id);
                 if (existingPro is null) return NotFound();
 
                 existingPro.Name = pro.Name;
@@ -100,15 +100,15 @@ namespace server.Controller
             }
         }
 
-        [HttpDelete]
-        public async Task<IActionResult> Delete([FromBody] Product pro)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id)
         {
             try
             {
-                var existingPro = await _productRepository.GetProductAsync(pro.Id);
+                var existingPro = await _productRepository.GetProductAsync(id);
                 if (existingPro is null) return NotFound();
 
-                await _productRepository.DeleteProductAsync(pro);
+                await _productRepository.DeleteProductAsync(existingPro);
 
                 return NoContent();
             }

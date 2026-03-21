@@ -16,6 +16,12 @@ builder.Services.AddDbContext<DataContext>(options =>
         .GetConnectionString("MySQL"))
     ));
 
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName = "ProductManagement_";
+});
+
 builder.Services.AddScoped<IProductRepository, ProductService>();
 
 // Add services to the container.

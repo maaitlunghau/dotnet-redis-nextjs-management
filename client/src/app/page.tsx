@@ -2,18 +2,50 @@
 
 import { useProducts } from '@/hooks/useProducts';
 import { Product } from '@/types/product';
-import { Table, Button, Space, Card, Typography, Tag, message, Popconfirm } from 'antd';
+import { Table, Button, Space, Card, Typography, Tag, message, Popconfirm, Modal, Form, Input, InputNumber } from 'antd';
 import { ReloadOutlined, PlusOutlined, DeleteOutlined, EditOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 const { Title, Text } = Typography;
 
 export default function Home() {
-  const { productsQuery, deleteMutation } = useProducts();
-  const queryClient = useQueryClient();
+  const { productsQuery, deleteMutation, createMutation, updateMutation } = useProducts();
+  
+  // Quản lý trạng thái Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [form] = Form.useForm();
 
-  const handleRefresh = () => {
-    productsQuery.refetch();
+  // Mở Modal để Thêm mới
+  const showAddModal = () => {
+    setEditingProduct(null);
+    form.resetFields();
+    setIsModalOpen(true);
+  };
+
+  // Mở Modal để Chỉnh sửa
+  const showEditModal = (product: Product) => {
+    setEditingProduct(product);
+    form.setFieldsValue(product); // Đổ dữ liệu cũ vào form
+    setIsModalOpen(true);
+  };
+
+  // Xử lý khi nhấn OK trong Form
+  const handleFormFinish = async (values: any) => {
+    try {
+      if (editingProduct) {
+        // Cập nhật
+        await updateMutation.mutateAsync({ id: editingProduct.id, product: values });
+        message.success('Cập nhật sản phẩm thành công!');
+      } else {
+        // Thêm mới
+        await createMutation.mutateAsync(values);
+        message.success('Thêm sản phẩm mới thành công!');
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      message.error('Thao tác thất bại, vui lòng thử lại.');
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -25,51 +57,34 @@ export default function Home() {
     }
   };
 
-  // Cấu hình cột cho Table Ant Design
   const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 70,
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 70 },
+    { 
+      title: 'Tên sản phẩm', 
+      dataIndex: 'name', 
+      key: 'name', 
+      render: (text: string) => <Text strong>{text}</Text> 
     },
-    {
-      title: 'Tên sản phẩm',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string) => <Text strong>{text}</Text>,
+    { 
+      title: 'Danh mục', 
+      dataIndex: 'category', 
+      key: 'category', 
+      render: (cat: string) => <Tag color="blue">{cat || 'N/A'}</Tag> 
     },
-    {
-      title: 'Danh mục',
-      dataIndex: 'category',
-      key: 'category',
-      render: (cat: string) => <Tag color="blue">{cat || 'N/A'}</Tag>,
+    { 
+      title: 'Giá', 
+      dataIndex: 'price', 
+      key: 'price', 
+      render: (price: number) => <Text type="success">{price?.toLocaleString()} VNĐ</Text> 
     },
-    {
-      title: 'Giá',
-      dataIndex: 'price',
-      key: 'price',
-      render: (price: number) => (
-        <Text type="success">{price.toLocaleString('vi-VN')} {price <= 1000 ? '$' : 'VNĐ'}</Text>
-      ),
-    },
-    {
-      title: 'Tồn kho',
-      dataIndex: 'stockQuantity',
-      key: 'stockQuantity',
-    },
+    { title: 'Tồn kho', dataIndex: 'stockQuantity', key: 'stockQuantity' },
     {
       title: 'Hành động',
       key: 'action',
       render: (_: any, record: Product) => (
         <Space size="middle">
-          <Button icon={<EditOutlined />} type="link">Sửa</Button>
-          <Popconfirm
-            title="Bạn có chắc chắn muốn xóa?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Xóa"
-            cancelText="Hủy"
-          >
+          <Button icon={<EditOutlined />} type="link" onClick={() => showEditModal(record)}>Sửa</Button>
+          <Popconfirm title="Xóa sản phẩm này?" onConfirm={() => handleDelete(record.id)}>
             <Button icon={<DeleteOutlined />} danger type="link">Xóa</Button>
           </Popconfirm>
         </Space>
@@ -83,49 +98,62 @@ export default function Home() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <Title level={2} className="m-0 flex items-center gap-2">
-              <ThunderboltOutlined className="text-amber-500" />
-              Quản lý Sản phẩm (Redis Cache)
+              <ThunderboltOutlined className="text-amber-500" /> Quản lý Sản phẩm (Redis)
             </Title>
-            <Text type="secondary">Thực hành Next.js + .NET Core + MySQL + Redis</Text>
+            <Text type="secondary">Next.js + .NET Core + Redis Caching</Text>
           </div>
           <Space>
-            <Button 
-                onClick={handleRefresh} 
-                icon={<ReloadOutlined />} 
-                loading={productsQuery.isFetching}
-            >
-              Làm mới (Check Cache)
+            <Button onClick={() => productsQuery.refetch()} icon={<ReloadOutlined />} loading={productsQuery.isFetching}>
+              Làm mới
             </Button>
-            <Button type="primary" icon={<PlusOutlined />}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={showAddModal}>
               Thêm mới
             </Button>
           </Space>
-        </div>
-
-        {/* Thông tin về trạng thái Cache */}
-        <div className="mb-4 bg-white p-4 rounded-lg border flex gap-4 items-center">
-            <Tag color={productsQuery.isFetching ? 'processing' : 'success'}>
-                Trạng thái API: {productsQuery.isFetching ? 'Đang gọi...' : 'Sẵn sàng'}
-            </Tag>
-            <Text italic type="secondary">
-                Mẹo: Hãy quan sát Network Tab (F12) để xem tốc độ của Redis (Lần đầu chậm, các lần sau cực nhanh).
-            </Text>
         </div>
 
         <Table 
           dataSource={productsQuery.data} 
           columns={columns} 
           rowKey="id" 
-          loading={productsQuery.isLoading}
-          pagination={{ pageSize: 5 }}
-          className="bg-white rounded-md shadow-sm"
+          loading={productsQuery.isLoading} 
+          className="bg-white rounded-md"
         />
       </Card>
-      
-      {/* Devtools Hint */}
-      <div className="mt-8 text-center">
-        <Text disabled>Mở TanStack Query Devtools (góc dưới trái) để xem trạng thái Cache tại Frontend</Text>
-      </div>
+
+      {/* MODAL THÊM / SỬA SẢN PHẨM */}
+      <Modal
+        title={editingProduct ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        onOk={() => form.submit()}
+        confirmLoading={createMutation.isPending || updateMutation.isPending}
+        destroyOnHidden
+      >
+        <Form form={form} layout="vertical" onFinish={handleFormFinish} className="mt-4">
+          <Form.Item name="name" label="Tên sản phẩm" rules={[{ required: true, message: 'Vui lòng nhập tên!' }]}>
+            <Input placeholder="Ví dụ: iPhone 15 Pro" />
+          </Form.Item>
+          
+          <Form.Item name="category" label="Danh mục">
+            <Input placeholder="Ví dụ: Mobile, Laptop..." />
+          </Form.Item>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item name="price" label="Giá (VNĐ)" rules={[{ required: true, message: 'Vui lòng nhập giá!' }]}>
+              <InputNumber className="w-full" min={0} formatter={(val) => `${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+            </Form.Item>
+
+            <Form.Item name="stockQuantity" label="Số lượng tồn" rules={[{ required: true, message: 'Vui lòng nhập số lượng!' }]}>
+              <InputNumber className="w-full" min={0} />
+            </Form.Item>
+          </div>
+
+          <Form.Item name="description" label="Mô tả">
+            <Input.TextArea rows={3} placeholder="Mô tả chi tiết sản phẩm..." />
+          </Form.Item>
+        </Form>
+      </Modal>
     </main>
   );
 }

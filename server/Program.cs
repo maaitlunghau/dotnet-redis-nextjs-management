@@ -45,9 +45,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors("AllowAll");
+
 app.UseHttpsRedirection();
 
-app.UseCors("AllowAll");
+// Seed Data
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<DataContext>();
+    await Seed.SeedData(context);
+}
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
